@@ -1,0 +1,67 @@
+---
+title: "Deep Learning demos"
+author: "Saúl Lugo"
+date: "12 de octubre de 2016"
+output: html_document
+---
+
+#Ejemplo del Espiral
+
+##Generando los datos
+
+```{r espiral_data}
+library(ggplot2)
+library(caret)
+ 
+N <- 200 # number of points per class
+D <- 2 # dimensionality
+K <- 2 # number of classes
+X <- data.frame() # data matrix (each row = single example)
+y <- data.frame() # class labels
+ 
+set.seed(308)
+ 
+for (j in (1:K)){
+  r <- seq(0.05,1,length.out = N) # radius
+  t <- seq((j-1)*4.7,j*4.7, length.out = N) + rnorm(N, sd = 0.3) # theta
+  Xtemp <- data.frame(x =r*sin(t) , y = r*cos(t)) 
+  ytemp <- data.frame(matrix(j, N, 1))
+  X <- rbind(X, Xtemp)
+  y <- rbind(y, ytemp)
+}
+ 
+data <- cbind(X,y)
+colnames(data) <- c(colnames(X), 'label')
+```
+
+##Graficando los datos
+
+```{r plotting_data}
+
+x_min <- min(X[,1])-0.2; x_max <- max(X[,1])+0.2
+y_min <- min(X[,2])-0.2; y_max <- max(X[,2])+0.2
+ 
+# lets visualize the data:
+p <- ggplot(data) + geom_point(aes(x=x, y=y, color = as.character(label)), size = 2) 
+  xlim(x_min, x_max) + ylim(y_min, y_max) +
+  ggtitle('Visualización de los Datos en Espiral') 
+
+p
+```
+
+#Función para graficar la frontera de decisión
+
+```{r decision_boundary}
+plotC <- function(name, model, data, g){
+  require(h2o)
+  data <- as.data.frame(data)
+  pred <- as.data.frame(h2o.predict(model, g))
+  n = 0.5*(sqrt(nrow(g))-1)
+  d <- 1.5
+  h <- d*(-n:n)/n
+  plot(data[,-3],pch=19, col=data[,3],cex=0.5,xlim = c(-d,d),ylim=c(-d,d),main=name)
+  contour(h,h,z=array(ifelse(pred[,1]==2,0,1),dim=c(2*n+1,2*n+1)),col="blue",lwd=2,add = T)
+
+}
+```
+
