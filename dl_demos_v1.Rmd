@@ -76,7 +76,8 @@ Ahora entrenemos un modelo de Deep Learning para ver cómo el modelo separa las 
 ```{r models_training}
 library(h2o)
 
-h2o.init(nthreads=-1, max_mem_size="2G", ip = "localhost", port = 54321)
+#h2o.init(nthreads=-1, max_mem_size="2G", ip = "localhost", port = 54321)
+h2o.init(nthreads=-1, ip = "localhost", port = 54321)
 h2o.removeAll()
 
 mydata.hex <- as.h2o(mydata)
@@ -84,26 +85,32 @@ summary(mydata.hex)
 mydata.hex$label <- as.factor(mydata.hex$label)
 summary(mydata.hex)
 
-grid <- h2o.importFile("data/grid.csv")
+setwd("Documentos/r_projects/deep_learning/")
+grid <- h2o.importFile(path = normalizePath("data/grid.csv"))
 
 head(grid)
 summary(grid)
 
 #Entrenando los 4 modelos:
 
-dl.model <- h2o.deeplearning(1:2,3,mydata.hex,epochs = 1000)
+dl.model.500e <- h2o.deeplearning(1:2,3,mydata.hex,epochs = 500)
+dl.model.1000e <- h2o.deeplearning(1:2,3,mydata.hex,epochs = 1000)
 gbm.model <- h2o.gbm(1:2,3,mydata.hex)
 rf.model <- h2o.randomForest(1:2,3,mydata.hex)
 nb.model <- h2o.naiveBayes(1:2,3,mydata.hex)
+glm.model <- h2o.glm(1:2,3,mydata.hex,family= "multinomial")
+
 
 #Graficando la Frontera de Decisión
 
-par(mfrow=c(2,2))
-plot_boundary("Deep Learning Model", dl.model, mydata.hex, grid)
+plot.new()
+par(mfrow=c(3,3))
+plot_boundary("DL Model 500 epochs", dl.model.500e, mydata.hex, grid)
+plot_boundary("DL Model 1000 epochs", dl.model.1000e, mydata.hex, grid)
 plot_boundary("GBM Model", gbm.model, mydata.hex, grid)
 plot_boundary("RF Model", rf.model, mydata.hex, grid)
 plot_boundary("Naive Bayes Model", nb.model, mydata.hex, grid)
-
+plot_boundary("GLM Model", glm.model, mydata.hex, grid)
 
 
 ```
