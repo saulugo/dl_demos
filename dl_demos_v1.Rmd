@@ -215,14 +215,16 @@ Vemos que el peor acuracy lo tienen NB y GLM ya que sus fronteras son lineales o
 
 #Afinando el Modelo de Deep Learning
 
+##Variando el Tiempo de Entrenamiento (epochs)
+
 Veamos como varía el aprendizaje de la frontera de decisión variando la cantidad de epochs del modelo:
 
 ```{r dl_epoch}
 #Entrenamos cuatro modelos con distintos epochs
-dl.1e <- h2o.deeplearning(1:2,3,train.hex, epochs = 1, model_id = dl_1e)
-dl.250e <- h2o.deeplearning(1:2,3,train.hex, epochs = 250, model_id = dl_250e)
-dl.750e <- h2o.deeplearning(1:2,3,train.hex, epochs = 750, model_id = dl_750e)
-dl.1000e <- h2o.deeplearning(1:2,3,train.hex, epochs = 1000, model_id = dl_1000e)
+dl.1e <- h2o.deeplearning(1:2,3,train.hex, epochs = 1, model_id = "dl_1e")
+dl.250e <- h2o.deeplearning(1:2,3,train.hex, epochs = 250, model_id = "dl_250e")
+dl.750e <- h2o.deeplearning(1:2,3,train.hex, epochs = 750, model_id = "dl_750e")
+dl.1000e <- h2o.deeplearning(1:2,3,train.hex, epochs = 1000, model_id = "dl_1000e")
 
 #Grafiquemos la frontera de decisión para comparar
 par(mfrow = c(2,2))
@@ -232,7 +234,70 @@ plot_boundary("DL 250 epoch", dl.250e, train.hex)
 plot_boundary("DL 750 epoch", dl.750e, train.hex)
 plot_boundary("DL 1000 epoch", dl.1000e, train.hex)
 
+#Ahora utilicemos checkpoints para ver la evolución del entrenamiento
+
+dl.1e <- h2o.deeplearning(1:2,3,train.hex, epochs = 1, model_id = "dl_1e")
+dl.250e <- h2o.deeplearning(1:2,3,train.hex, epochs = 250, model_id = "dl_250e",checkpoint = "dl_1e")
+dl.750e <- h2o.deeplearning(1:2,3,train.hex, epochs = 750, model_id = "dl_750e",checkpoint = "dl_250e")
+dl.1000e <- h2o.deeplearning(1:2,3,train.hex, epochs = 1000, model_id = "dl_1000e",checkpoint = "dl_750e")
+
+#Grafiquemos la frontera de decisión para comparar
+plot.new()
+par(mfrow = c(2,2))
+
+plot_boundary("DL 1 epoch", dl.1e, train.hex)
+plot_boundary("DL 250 epoch", dl.250e, train.hex)
+plot_boundary("DL 750 epoch", dl.750e, train.hex)
+plot_boundary("DL 1000 epoch", dl.1000e, train.hex)
+
+dl.1000e.pred <- h2o.predict(dl.1000e,newdata = test.hex)
+dl.pred <- as.data.frame(dl.1000e.pred)
+confusionMatrix(dl.pred$predict,test$label)
+
+#Vemos que el acuracy en testing baja a 64%
+```
 
 
+##Variando la Arquitectura de la Red Neuronal
+
+```{r dl_arq}
+#Modifiquemos la estrucura y la profundidad de las capas ocultas
+
+dl.h1 <- h2o.deeplearning(1:2,3,train.hex, epochs = 1000,hidden = c(11,13,17,19),model_id = "dl_h1")
+dl.h2 <- h2o.deeplearning(1:2,3,train.hex, epochs = 1000,hidden = c(42,42,42,42),model_id = "dl_h2")
+dl.h3 <- h2o.deeplearning(1:2,3,train.hex, epochs = 1000,hidden = c(200,200),model_id = "dl_h3")
+dl.h4 <- h2o.deeplearning(1:2,3,train.hex, epochs = 1000,hidden = c(1000),model_id = "dl_h4")
+
+plot.new()
+par(mfrow = c(2,2))
+
+plot_boundary("DL h=c(11,13,17,19)", dl.h1, train.hex)
+plot_boundary("DL h=c(42,42,42,42)", dl.h2, train.hex)
+plot_boundary("DL h=c(200,200)", dl.h3, train.hex)
+plot_boundary("DL h=c(1000)", dl.h4, train.hex)
+
+dl.h1.pred <- h2o.predict(dl.h1,newdata = test.hex) #aprox acuracy 89.5%
+dl.pred <- as.data.frame(dl.h1.pred)
+confusionMatrix(dl.pred$predict,test$label)
+
+dl.h2.pred <- h2o.predict(dl.h2,newdata = test.hex) #aprox acuracy 94%
+dl.pred <- as.data.frame(dl.h2.pred)
+confusionMatrix(dl.pred$predict,test$label)
+
+dl.h3.pred <- h2o.predict(dl.h3,newdata = test.hex) #aprox acuracy 77.8%
+dl.pred <- as.data.frame(dl.h3.pred)
+confusionMatrix(dl.pred$predict,test$label)
+
+dl.h4.pred <- h2o.predict(dl.h4,newdata = test.hex) #aprox acuracy 37.5%
+dl.pred <- as.data.frame(dl.h4.pred)
+confusionMatrix(dl.pred$predict,test$label)
 
 ```
+
+Vemos que darle profundidad a la red mejoró mucho el acuracy. Las dos primeras redes tienen acuracy de 90 y 94%, ambas tienen cuatro capas internas. La tercera red tiene h = c(200,200) que es la configuración por default de H2O, con lo que obtuvimos el mismo 77% de acuracy que ya teníamos de la primera parte del ejercicio.
+
+Por último, es interesante señalar el caso de la cuarta red. Vemos que aunque tienen 1000 neuronas, tienen una sola capa oculta. Del gráfico de froteras vemos que es la que peor aprendió la frontera y luego de la matriz de confusión vemos que es la que tiene la precisión más baja (37.5%).
+
+**En definitiva, la profundidad de la red es un factor determinante en este caso**.
+
+
