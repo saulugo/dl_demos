@@ -13,14 +13,15 @@ Luego con estos datos generados vamos a entrenar varios modelos de Machine Learn
 
 ##Generando los datos
 
+###Datos de Entrenamiento
 
 ```{r espiral_data}
 N <- 200 # numero de puntos por clase
 K <- 4 # número de clases
-X <- data.frame() # data matrix (each row = single example)
-y <- data.frame() # class labels
+X <- data.frame() 
+y <- data.frame() 
  
-#set.seed(308)
+set.seed(1000)
  
 for (j in (1:K)){
   r <- seq(0.05,1,length.out = N) # radius
@@ -31,23 +32,56 @@ for (j in (1:K)){
   y <- rbind(y, ytemp)
 }
  
-mydata <- cbind(X,y)
-colnames(mydata) <- c(colnames(X), 'label')
+train <- cbind(X,y)
+colnames(train) <- c(colnames(X), 'label')
 ```
 
-##Graficando los datos
+###Graficando los datos de entrenamiento
 
 ```{r plotting_data}
 x_min <- min(X[,1])-0.2; x_max <- max(X[,1])+0.2
 y_min <- min(X[,2])-0.2; y_max <- max(X[,2])+0.2
  
-plot(mydata[,-3],pch=19,col=mydata[,3],cex=0.5, xlim=c(x_min,x_max),ylim=c(y_min,y_max),main="Nube de Puntos en Espiral")
+plot(train[,-3],pch=19,col=train[,3],cex=0.5, xlim=c(x_min,x_max),ylim=c(y_min,y_max),main="Nube de Puntos en Espiral - Datos de Training")
 ```
+
+###Datos de Testing
+
+```{r espiral_data}
+N <- 100 # numero de puntos por clase
+K <- 4 # número de clases
+X <- data.frame() 
+y <- data.frame() 
+ 
+set.seed(2000) #fijo una semilla distinta a la de training para obtener datos distintos para testing
+ 
+for (j in (1:K)){
+  r <- seq(0.05,1,length.out = N) # radius
+  t <- seq((j-1)*4.7,j*4.7, length.out = N) + rnorm(N, sd = 0.3) # theta
+  Xtemp <- data.frame(x =r*sin(t) , y = r*cos(t)) 
+  ytemp <- data.frame(matrix(j, N, 1))
+  X <- rbind(X, Xtemp)
+  y <- rbind(y, ytemp)
+}
+ 
+test <- cbind(X,y)
+colnames(test) <- c(colnames(X), 'label')
+```
+
+###Graficando los datos
+
+```{r plotting_data}
+x_min <- min(X[,1])-0.2; x_max <- max(X[,1])+0.2
+y_min <- min(X[,2])-0.2; y_max <- max(X[,2])+0.2
+ 
+plot(test[,-3],pch=19,col=test[,3],cex=0.5, xlim=c(x_min,x_max),ylim=c(y_min,y_max),main="Nube de Puntos en Espiral - Datos de Testing")
+```
+
 
 #Función para graficar la frontera de decisión
 
 ```{r decision_boundary}
-plot_boundary <- function(name, model, data, g) {
+plot_boundary <- function(name, model, data, g=grid) {
   library(ggplot2)
   data <- as.data.frame(data) 
   pred <- as.data.frame(h2o.predict(model, g))
@@ -67,23 +101,24 @@ plot_boundary <- function(name, model, data, g) {
 
 #Comparando Modelos
 
-Ahora entrenemos un modelo de Deep Learning para ver cómo el modelo separa las clases y comparemos el resultado contra otros tres modelos:
+Ahora entrenaremos los siguientes modelos para comparar sus resultados:
 
-- Un **Gradient Boosting Method**, implementado en H2O en la función gbm 
-- Un **Random Forest**, implementado en H2O en la función randomForest
-- Un **Naive Bayes**, implementado en H2O en la función naiveBayes
+- Un modelo de **Deep Learning**, con 1000 epoch y los demás parámetros por default.
+- **Gradient Boosting Method**, implementado en H2O en la función gbm 
+- **Random Forest**, implementado en H2O en la función randomForest
+- **Naive Bayes**, implementado en H2O en la función naiveBayes
+- **Regresión Multinomial**, implementado en H2O en la función glm
 
 ```{r models_training}
 library(h2o)
 
-#h2o.init(nthreads=-1, max_mem_size="2G", ip = "localhost", port = 54321)
 h2o.init(nthreads=-1, ip = "localhost", port = 54321)
 h2o.removeAll()
 
-mydata.hex <- as.h2o(mydata)
-summary(mydata.hex)
-mydata.hex$label <- as.factor(mydata.hex$label)
-summary(mydata.hex)
+train.hex <- as.h2o(train)
+summary(train.hex)
+train.hex$label <- as.factor(train.hex$label)
+summary(train.hex)
 
 setwd("Documentos/r_projects/deep_learning/")
 grid <- h2o.importFile(path = normalizePath("data/grid.csv"))
@@ -93,25 +128,111 @@ summary(grid)
 
 #Entrenando los 4 modelos:
 
-dl.model.500e <- h2o.deeplearning(1:2,3,mydata.hex,epochs = 500)
-dl.model.1000e <- h2o.deeplearning(1:2,3,mydata.hex,epochs = 1000)
-gbm.model <- h2o.gbm(1:2,3,mydata.hex)
-rf.model <- h2o.randomForest(1:2,3,mydata.hex)
-nb.model <- h2o.naiveBayes(1:2,3,mydata.hex)
-glm.model <- h2o.glm(1:2,3,mydata.hex,family= "multinomial")
+dl.model.1000e <- h2o.deeplearning(1:2,3,train.hex,epochs = 1000, model_id = "dl_1000e")
+gbm.model <- h2o.gbm(1:2,3,train.hex, model_id = "gbm")
+rf.model <- h2o.randomForest(1:2,3,train.hex, model_id = "rf")
+nb.model <- h2o.naiveBayes(1:2,3,train.hex, model_id = "nb")
+glm.model <- h2o.glm(1:2,3,train.hex,family= "multinomial", model_id = "glm")
 
 
-#Graficando la Frontera de Decisión
+#Graficando la Frontera de Decisión sobre los Datos de Training
 
 plot.new()
 par(mfrow=c(3,3))
-plot_boundary("DL Model 500 epochs", dl.model.500e, mydata.hex, grid)
-plot_boundary("DL Model 1000 epochs", dl.model.1000e, mydata.hex, grid)
-plot_boundary("GBM Model", gbm.model, mydata.hex, grid)
-plot_boundary("RF Model", rf.model, mydata.hex, grid)
-plot_boundary("Naive Bayes Model", nb.model, mydata.hex, grid)
-plot_boundary("GLM Model", glm.model, mydata.hex, grid)
+plot_boundary("DL Model 1000 epochs", dl.model.1000e, train.hex, grid)
+plot_boundary("GBM Model", gbm.model, train.hex, grid)
+plot_boundary("RF Model", rf.model, train.hex, grid)
+plot_boundary("Naive Bayes Model", nb.model, train.hex, grid)
+plot_boundary("GLM Model", glm.model, train.hex, grid)
 
+#Evaluando los modelos con el dataset de Testing
+
+test.hex <- as.h2o(test)
+summary(test.hex)
+test.hex$label <- as.factor(test.hex$label)
+summary(test.hex)
+
+h2o.confusionMatrix(dl.model.1000e, test.hex)
+h2o.confusionMatrix(gbm.model,test.hex)
+h2o.confusionMatrix(rf.model,test.hex)
+h2o.confusionMatrix(nb.model,test.hex)
+h2o.confusionMatrix(glm.model,test.hex)
+
+#Graficando la Frontera de Decisión sobre los datos de Testing
+
+
+par(mfcol=c(1,2))
+plot.new()
+plot_boundary("DL Training", dl.model.1000e, train.hex, grid)
+plot_boundary("DL Training", dl.model.1000e, train.hex, grid)
+plot_boundary("DL Testing", dl.model.1000e, test.hex)
+
+plot_boundary("GBM Training", gbm.model, train.hex, grid)
+plot_boundary("GBM Testing", gbm.model, test.hex)
+
+plot_boundary("RF Training", rf.model, train.hex, grid)
+plot_boundary("RF Testing", rf.model, test.hex)
+
+plot_boundary("NB Training", nb.model, train.hex, grid)
+plot_boundary("NB Testing", nb.model, test.hex)
+
+plot_boundary("GLM Training", glm.model, train.hex, grid)
+plot_boundary("GLM Testing", glm.model, test.hex)
+
+
+#Matriz de Confusión
+library(caret)
+
+dl.model.1000e.pred <- h2o.predict(dl.model.1000e,newdata = test.hex)
+dl.pred <- as.data.frame(dl.model.1000e.pred)
+confusionMatrix(dl.pred$predict,test$label)
+
+gbm.model.pred <- h2o.predict(gbm.model,newdata = test.hex)
+gbm.pred <- as.data.frame(gbm.model.pred)
+confusionMatrix(gbm.pred$predict,test$label)
+
+rf.model.pred <- h2o.predict(rf.model,newdata = test.hex)
+rf.pred <- as.data.frame(rf.model.pred)
+confusionMatrix(rf.pred$predict,test$label)
+
+nb.model.pred <- h2o.predict(nb.model,newdata = test.hex)
+nb.pred <- as.data.frame(nb.model.pred)
+confusionMatrix(nb.pred$predict,test$label)
+
+glm.model.pred <- h2o.predict(glm.model,newdata = test.hex)
+glm.pred <- as.data.frame(glm.model.pred)
+confusionMatrix(glm.pred$predict,test$label)
 
 ```
 
+###Conclusión
+
+Vemos que el modelo de DL aprendió mejor la frontera de decisión que los demás modelos. Vemos también que los modelos de Naive Bayes y el de Regresión Multinomial son los que tienen mayor dificultad para aprender la frontera, en especial el de Regresión ya que es un modelo lineal y una frontera lineal no funciona en este problema de clasificación.
+
+Por otro lado, al evaluar el acuracy contra el dataset de test, vemos que RF y GBM dan precisiones alrededor del 95% mientras que el de DL da cerca del 73%. Esto se debe a que el modelo de DL está sufriendo de overfitting y por lo tanto no está generalizando bien.
+
+Vemos que el peor acuracy lo tienen NB y GLM ya que sus fronteras son lineales o casi-lineales y en este problema de clasificación no funcionan bien.
+
+#Afinando el Modelo de Deep Learning
+
+Veamos como varía el aprendizaje de la frontera de decisión variando la cantidad de epochs del modelo:
+
+```{r dl_epoch}
+#Entrenamos cuatro modelos con distintos epochs
+dl.1e <- h2o.deeplearning(1:2,3,train.hex, epochs = 1, model_id = dl_1e)
+dl.250e <- h2o.deeplearning(1:2,3,train.hex, epochs = 250, model_id = dl_250e)
+dl.750e <- h2o.deeplearning(1:2,3,train.hex, epochs = 750, model_id = dl_750e)
+dl.1000e <- h2o.deeplearning(1:2,3,train.hex, epochs = 1000, model_id = dl_1000e)
+
+#Grafiquemos la frontera de decisión para comparar
+par(mfrow = c(2,2))
+
+plot_boundary("DL 1 epoch", dl.1e, train.hex)
+plot_boundary("DL 250 epoch", dl.250e, train.hex)
+plot_boundary("DL 750 epoch", dl.750e, train.hex)
+plot_boundary("DL 1000 epoch", dl.1000e, train.hex)
+
+
+
+
+```
