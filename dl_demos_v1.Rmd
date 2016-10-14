@@ -107,7 +107,7 @@ Ahora entrenaremos los siguientes modelos para comparar sus resultados:
 - **Gradient Boosting Method**, implementado en H2O en la función gbm 
 - **Random Forest**, implementado en H2O en la función randomForest
 - **Naive Bayes**, implementado en H2O en la función naiveBayes
-- **Regresión Multinomial**, implementado en H2O en la función glm
+- **Generalized Linear Modeling**, implementado en H2O en la función glm
 
 ```{r models_training}
 library(h2o)
@@ -189,19 +189,19 @@ confusionMatrix(dl.pred$predict,test$label)
 
 gbm.model.pred <- h2o.predict(gbm.model,newdata = test.hex)
 gbm.pred <- as.data.frame(gbm.model.pred)
-confusionMatrix(gbm.pred$predict,test$label)
+confusionMatrix(gbm.pred$predict,test$label) #aprox acuracy 95.25%
 
 rf.model.pred <- h2o.predict(rf.model,newdata = test.hex)
 rf.pred <- as.data.frame(rf.model.pred)
-confusionMatrix(rf.pred$predict,test$label)
+confusionMatrix(rf.pred$predict,test$label) #aprox acuracy 96.75%
 
 nb.model.pred <- h2o.predict(nb.model,newdata = test.hex)
 nb.pred <- as.data.frame(nb.model.pred)
-confusionMatrix(nb.pred$predict,test$label)
+confusionMatrix(nb.pred$predict,test$label) #aprox acuracy 41.25%
 
 glm.model.pred <- h2o.predict(glm.model,newdata = test.hex)
 glm.pred <- as.data.frame(glm.model.pred)
-confusionMatrix(glm.pred$predict,test$label)
+confusionMatrix(glm.pred$predict,test$label) #aprox acuracy 33%
 
 ```
 
@@ -272,25 +272,25 @@ plot.new()
 par(mfrow = c(2,2))
 
 plot_boundary("DL h=c(11,13,17,19)", dl.h1, train.hex)
-plot_boundary("DL h=c(42,42,42,42)", dl.h2, train.hex)
+plot_boundary("DL h=c(42,84,84,42)", dl.h2, train.hex)
 plot_boundary("DL h=c(200,200)", dl.h3, train.hex)
 plot_boundary("DL h=c(1000)", dl.h4, train.hex)
 
-dl.h1.pred <- h2o.predict(dl.h1,newdata = test.hex) #aprox acuracy 89.5%
+dl.h1.pred <- h2o.predict(dl.h1,newdata = test.hex) 
 dl.pred <- as.data.frame(dl.h1.pred)
-confusionMatrix(dl.pred$predict,test$label)
+confusionMatrix(dl.pred$predict,test$label) #aprox acuracy 89.5%
 
-dl.h2.pred <- h2o.predict(dl.h2,newdata = test.hex) #aprox acuracy 94%
+dl.h2.pred <- h2o.predict(dl.h2,newdata = test.hex) 
 dl.pred <- as.data.frame(dl.h2.pred)
-confusionMatrix(dl.pred$predict,test$label)
+confusionMatrix(dl.pred$predict,test$label) #aprox acuracy 97%
 
-dl.h3.pred <- h2o.predict(dl.h3,newdata = test.hex) #aprox acuracy 77.8%
+dl.h3.pred <- h2o.predict(dl.h3,newdata = test.hex) 
 dl.pred <- as.data.frame(dl.h3.pred)
-confusionMatrix(dl.pred$predict,test$label)
+confusionMatrix(dl.pred$predict,test$label) #aprox acuracy 77.8%
 
-dl.h4.pred <- h2o.predict(dl.h4,newdata = test.hex) #aprox acuracy 37.5%
+dl.h4.pred <- h2o.predict(dl.h4,newdata = test.hex) 
 dl.pred <- as.data.frame(dl.h4.pred)
-confusionMatrix(dl.pred$predict,test$label)
+confusionMatrix(dl.pred$predict,test$label) #aprox acuracy 37.5%
 
 ```
 
@@ -300,4 +300,119 @@ Por último, es interesante señalar el caso de la cuarta red. Vemos que aunque 
 
 **En definitiva, la profundidad de la red es un factor determinante en este caso**.
 
+#Variando La Función de Activación
 
+De la sección anterior nos quedamos con el modelo **dl.h2** que fue la arquitectura que resultó con mejor performance. Ahora veamos que pasa si dejamos esa arquitectura pero variamos la función de activación.
+
+```{r dl_activation_func}
+
+dl.Tanh <- h2o.deeplearning(1:2,3,train.hex,
+                            activation = "Tanh", 
+                            hidden = c(42,84,84,42),
+                            epochs = 1000,
+                            model_id = "dl_tanh")
+
+dl.Maxout <- h2o.deeplearning(1:2,3,train.hex,
+                            activation = "Maxout", 
+                            hidden = c(42,84,84,42),
+                            epochs = 1000,
+                            model_id = "dl_maxout")
+
+dl.rect <- h2o.deeplearning(1:2,3,train.hex,
+                            activation = "Rectifier", 
+                            hidden = c(42,84,84,42),
+                            epochs = 1000,
+                            model_id = "dl_rect")
+
+#nótese que al utilizar RectifierWithDropout sin especificar la tasa de dropout, se está utilizando 50% por default
+dl.rectdrop <- h2o.deeplearning(1:2,3,train.hex,
+                            activation = "RectifierWithDropout", 
+                            hidden = c(42,84,84,42),
+                            epochs = 1000,
+                            model_id = "dl_rectdrop")
+
+plot.new()
+par(mfrow = c(2,2))
+
+plot_boundary("DL Act = Tanh", dl.Tanh, train.hex)
+plot_boundary("DL Act = Maxout", dl.Maxout, train.hex)
+plot_boundary("DL Act = Rectifier", dl.rect, train.hex)
+plot_boundary("DL Act = RectifierWithDroput", dl.rectdrop, train.hex)
+
+dl.Tanh.pred <- h2o.predict(dl.Tanh,newdata = test.hex) 
+dl.pred <- as.data.frame(dl.Tanh.pred)
+confusionMatrix(dl.pred$predict,test$label) #aprox acuracy 96.5%
+
+dl.Maxout.pred <- h2o.predict(dl.Maxout,newdata = test.hex) 
+dl.pred <- as.data.frame(dl.Maxout.pred)
+confusionMatrix(dl.pred$predict,test$label) #aprox acuracy 98%
+
+dl.rect.pred <- h2o.predict(dl.rect,newdata = test.hex) 
+dl.pred <- as.data.frame(dl.rect.pred)
+confusionMatrix(dl.pred$predict,test$label) #aprox acuracy 96.5%
+
+dl.rectdrop.pred <- h2o.predict(dl.rectdrop,newdata = test.hex) 
+dl.pred <- as.data.frame(dl.rectdrop.pred)
+confusionMatrix(dl.pred$predict,test$label) #aprox acuracy 53.25%
+
+```
+
+Vemos que el mejor performance nos está dando con la función Maxout. La Maxout es una generalización de la rectifier, por lo que en muchos casos funciona mejor y hace que el modelo llegue a converger más rápido.
+
+El peor performance lo tenemos cuando mezclamos la función de activación rectifier con un Dropout del 50%. Esto es de esperar, ya que en el 50% de los casos estamos apagando neuronas en las capas ocultas. El dropout es un buen método de regularización, pero 50% de probabilidad de dropout es muy alto, como podemos ver en este ejemplo.
+
+#Utilizando Grid Search para Comparar Modelos
+
+Con la funcionalidad **Grid Search** de H2O, se pueden modificar varios parámetros de la Red Neuronal y entrenar varios modelos con distintas configuraciones y luego comparar los resultados para escoger la mejor configuración.
+
+Por ejemplo, hagamos un grid para comparar las distintas configuraciones que hicimos anteriormente de arquitectura de la red y de función de activación.
+
+
+```{r grid_seach}
+h_opt <- list(c(11,13,17,19), c(42,84,84,42))
+act_opt <- c("Tanh", "Maxout", "Rectifier")
+
+hyper_params <- list(hidden = h_opt, activation = act_opt, epochs = 1000)
+
+model_grid <- h2o.grid("deeplearning",
+                       hyper_params = hyper_params,
+                       x = 1:2,
+                       y = 3,
+                       training_frame = train.hex,
+                       validation_frame = test.hex)
+#El modelo con el menor logloss es el mod-4 con h = c(42,84,84,42) y función de activación Maxout
+model_grid
+
+#Veamos el MSE de todos los modelos sobre el dataset de test
+for(model_id in model_grid@model_ids){
+  model <- h2o.getModel(model_id)
+  mse <- h2o.mse(model, valid = TRUE)
+  print(sprintf("Test set MSE: %f",mse))
+}
+
+#Vemos también que el modelo 4 tiene el test MSE menor.
+```
+
+Vemos que con la ayuda de la funcionalidad **grid search** de H2O podemos probar rápidamente muchas combinaciones de configuraciones de hiper-parámetros y ver cuál es la configuración con el mejor performance.
+
+Evaluemos la configuración del modelo-4 con una Matriz de Confusión:
+
+```{r conf_matrix}
+
+model <- h2o.getModel(model_id = "Grid_DeepLearning_RTMP_sid_863a_2_model_R_1476450286986_2_model_4")
+
+dl.model.pred <- h2o.predict(model,newdata = test.hex) 
+dl.pred <- as.data.frame(dl.model.pred)
+confusionMatrix(dl.pred$predict,test$label) #aprox acuracy 98.25%
+```
+
+#Conclusión Final
+En este ejercicio, comparamos el modelo de H2O de Deep Learning contra: Generalized Linear Modeling, Naive Bayes, Gradient Boosting Method, Random Fores, es decir, comparamos a DL con todos los algoritmos de clasificación que tiene disponible al día de hoy H2O.
+
+En una primera iteracción, vimos que el algoritmo con mejor precisión (96.75%) fue Random Forest, seguido de GBM (95.25%). Deep Learning sólo logró alrededor del 77% en esta primera iteración. Además vimos que tanto NB como GLM no son adecuados en este tipo de problema de clasificación donde la frontera de decisión necesaria no es líneal (ni se puede aproximar bien por una función lineal).
+
+Sin embargo, en sucesivas iteraciones, cambiando la arquitectura de la red utilizada en el algoritmo de Deep Learning, agregando capas y neuronas, es decir, agregando profundidad al modelo, la precisión del algoritmo mejoró mucho. Finalmente combinando esta arquitectura de mayor profundidad con la función de activación Maxout se obtuvo una precisión aprox. del 98%, mejorando la precisión del Random Forest y del GBM.
+
+En conclusión, en problemas de clasificación se puede mejorar mucho el performance de una Red Neuronal "jugando" con su configuración. Estas tareas de mejora y estudio de la configuración óptima son fáciles de implementar y documentar trabajando con H2O.
+
+**Nota final:** por ser algoritmos distribuidos y paralelizados, los algoritmos de H2O no son reproducibles, ya que no se puede fijar una semilla cuando el algoritmo está corriendo en más de 1 Core. Por lo tanto, los acuracy a los que se hace referencia en las conclusiones, pueden variar si se vuelven a ejecutar los algoritmos, sin embargo, las relaciones de comparación entre ellos deberían mantenerse similares.
